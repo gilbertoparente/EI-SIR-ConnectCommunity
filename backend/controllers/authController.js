@@ -45,6 +45,64 @@ const register = async (req, res) => {
     }
 };
 
+// Login
+const login = async (req, res) => {
+
+    try {
+
+        const { email, password } = req.body;
+
+        // Verificar se o utilizador existe
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            return res.status(401).json({
+                message: "Email ou password inválidos."
+            });
+        }
+
+        // Comparar password
+        const validPassword = await bcrypt.compare(password, user.password);
+
+        if (!validPassword) {
+            return res.status(401).json({
+                message: "Email ou password inválidos."
+            });
+        }
+
+        // Gerar token
+        const token = jwt.sign(
+            {
+                id: user._id,
+                email: user.email
+            },
+            process.env.JWT_SECRET,
+            {
+                expiresIn: "24h"
+            }
+        );
+
+        res.status(200).json({
+            message: "Login efetuado com sucesso.",
+            token,
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email
+            }
+        });
+
+    } catch (error) {
+
+        res.status(500).json({
+            message: error.message
+        });
+
+    }
+
+};
+
 module.exports = {
-    register
+    register,
+    login
 };
