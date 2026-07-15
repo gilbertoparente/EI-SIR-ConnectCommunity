@@ -29,6 +29,10 @@ const authRoutes = require("./routes/authRoutes");
 
 app.use("/api/auth", authRoutes);
 
+const studyGroupRoutes = require("./routes/studyGroupRoutes");
+app.use("/api/groups", studyGroupRoutes);
+
+
 app.listen(PORT, () => {
     console.log(`🚀 Servidor iniciado na porta ${PORT}`);
 });
