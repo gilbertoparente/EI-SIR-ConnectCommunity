@@ -35,6 +35,11 @@ app.use("/api/groups", studyGroupRoutes);
 const studySessionRoutes = require("./routes/studySessionRoutes");
 app.use("/api/sessions", studySessionRoutes);
 
+const resourceRoutes = require("./routes/resourceRoutes");
+app.use("/api/resources", resourceRoutes);
+
+app.use("/uploads", express.static("uploads"));
+
 
 app.listen(PORT, () => {
     console.log(`🚀 Servidor iniciado na porta ${PORT}`);
