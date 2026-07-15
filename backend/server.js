@@ -4,16 +4,34 @@ const dotenv = require("dotenv");
 
 const connectDB = require("./config/db");
 
+const http = require("http");
+const { Server } = require("socket.io");
+
+const socketHandler = require("./sockets/socket");
+
+const app = express();
+
+const server = http.createServer(app);
+
+const io = new Server(server, {
+    cors: {
+        origin: "*"
+    }
+});
+
+socketHandler(io);
+
 dotenv.config();
 
 // Ligar ao MongoDB
 connectDB();
 
-const app = express();
 
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+app.use(express.static("public"));
 
 // Rota de teste
 app.get("/", (req, res) => {
@@ -41,6 +59,6 @@ app.use("/api/resources", resourceRoutes);
 app.use("/uploads", express.static("uploads"));
 
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`🚀 Servidor iniciado na porta ${PORT}`);
 });

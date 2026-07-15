@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <title>Socket.IO Test</title>
+</head>
+<body>
+
+<h2>ConnectCommunity Chat Test</h2>
+
+<input id="groupId" placeholder="Group ID">
+<br><br>
+
+
+
+<input id="message" placeholder="Mensagem">
+
+<button onclick="sendMessage()">
+Enviar
+</button>
+
+<hr>
+
+<ul id="messages"></ul>
+
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+
+
+
+const token = prompt("Cole o JWT");
+
+const socket = io({
+
+    auth: {
+
+        token
+
+    }
+
+});
+
+document.getElementById("groupId").addEventListener("change", () => {
+
+    socket.emit(
+        "joinGroup",
+        document.getElementById("groupId").value
+    );
+
+});
+
+socket.on("receiveMessage", (msg) => {
+
+    const li = document.createElement("li");
+
+    li.innerHTML =
+        "<strong>" +
+        msg.sender.name +
+        "</strong>: " +
+        msg.message;
+
+    document
+        .getElementById("messages")
+        .appendChild(li);
+
+});
+
+function sendMessage(){
+
+    socket.emit("sendMessage", {
+
+        groupId:
+            document.getElementById("groupId").value,
+
+        message:
+            document.getElementById("message").value
+
+    });
+
+}
+
+</script>
+
+</body>
+</html>
