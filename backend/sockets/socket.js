@@ -1,27 +1,67 @@
 const ChatMessage = require("../models/ChatMessage");
-const StudyGroup = require("../models/StudyGroup");
+const PrivateMessage = require("../models/PrivateMessage");
+const StudySession = require("../models/StudySession");
+const User = require("../models/User");
+
 const jwt = require("jsonwebtoken");
+
+/*
+====================================================
+UTILIZADORES ONLINE
+====================================================
+*/
+
+const onlineUsers = new Map();
+
+/*
+====================================================
+SOCKET HANDLER
+====================================================
+*/
 
 const socketHandler = (io) => {
 
-    // Middleware de autenticação JWT
-    io.use((socket, next) => {
+    /*
+    ====================================================
+    AUTENTICAÇÃO
+    ====================================================
+    */
 
-        const token = socket.handshake.auth.token;
-
-        if (!token) {
-            return next(new Error("Token não fornecido."));
-        }
+    io.use(async (socket, next) => {
 
         try {
 
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            const token = socket.handshake.auth?.token;
 
-            socket.user = decoded;
+            if (!token) {
+                return next(new Error("Token não fornecido."));
+            }
+
+            const decoded = jwt.verify(
+                token,
+                process.env.JWT_SECRET
+            );
+
+            const user = await User.findById(decoded.id)
+                .select("name email");
+
+            if (!user) {
+                return next(new Error("Utilizador não encontrado."));
+            }
+
+            socket.user = {
+
+                _id: user._id.toString(),
+                name: user.name,
+                email: user.email
+
+            };
 
             next();
 
-        } catch (error) {
+        }
+
+        catch (error) {
 
             next(new Error("Token inválido."));
 
@@ -29,89 +69,362 @@ const socketHandler = (io) => {
 
     });
 
+    /*
+    ====================================================
+    NOVA LIGAÇÃO
+    ====================================================
+    */
+
     io.on("connection", (socket) => {
 
-        console.log(`🔌 Cliente ligado: ${socket.id}`);
+        console.log(
+            `🟢 ${socket.user.name} ligou-se.`
+        );
 
-        // Entrar num grupo
-        socket.on("joinGroup", async (groupId) => {
+        /*
+        ===========================================
+        REGISTAR UTILIZADOR ONLINE
+        ===========================================
+        */
+
+        onlineUsers.set(
+
+            socket.user._id,
+
+            {
+
+                id: socket.user._id,
+                _id: socket.user._id,
+                socketId: socket.id,
+                name: socket.user.name,
+                email: socket.user.email
+
+            }
+
+        );
+        /*
+        ===========================================
+        ENVIAR LISTA DE ONLINE
+        ===========================================
+        */
+
+        io.emit(
+
+            "onlineUsers",
+
+            Array.from(onlineUsers.values())
+
+        );
+
+        /*
+        ===========================================
+        PEDIDO MANUAL DA LISTA
+        ===========================================
+        */
+
+        socket.on("getOnlineUsers", () => {
+
+            socket.emit(
+
+                "onlineUsers",
+
+                Array.from(onlineUsers.values())
+
+            );
+
+        });
+
+        /*
+        ====================================================
+        CHAT DAS SESSÕES
+        ====================================================
+        */
+        socket.on("joinSession", async (sessionId) => {
 
             try {
 
-                const group = await StudyGroup.findById(groupId);
+                const session = await StudySession.findById(sessionId);
 
-                if (!group) {
+                if (!session) {
+
+                    socket.emit(
+                        "errorMessage",
+                        "Sessão não encontrada."
+                    );
+
                     return;
+
                 }
 
-                const isMember = group.members.some(
-                    member => member.toString() === socket.user.id
+                const isParticipant = session.participants.some(
+
+                    participant =>
+
+                        participant.toString() === socket.user._id
+
                 );
 
-                if (!isMember) {
+                if (!isParticipant) {
+
+                    socket.emit(
+
+                        "errorMessage",
+
+                        "Não pertence a esta sessão."
+
+                    );
+
                     return;
+
                 }
 
-                socket.join(groupId);
+                socket.join(sessionId);
 
                 console.log(
-                    `${socket.user.email} entrou no grupo ${group.title}`
+
+                    `📚 ${socket.user.name} entrou na sessão "${session.title}"`
+
                 );
 
-            } catch (error) {
+            }
 
-                console.error(error.message);
+            catch (error) {
+
+                console.error(error);
 
             }
 
         });
 
-        // Enviar mensagem
+        /*
+        ===========================================
+        MENSAGEM DA SESSÃO
+        ===========================================
+        */
+
         socket.on("sendMessage", async (data) => {
 
             try {
 
-                const { groupId, message } = data;
+                const {
 
-                const group = await StudyGroup.findById(groupId);
+                    sessionId,
+                    message
 
-                if (!group) {
+                } = data;
+
+                if (!message || message.trim() === "") {
+
                     return;
+
                 }
 
-                const isMember = group.members.some(
-                    member => member.toString() === socket.user.id
+                const session = await StudySession.findById(sessionId);
+
+                if (!session) return;
+
+                const isParticipant = session.participants.some(
+
+                    participant =>
+
+                        participant.toString() === socket.user._id
+
                 );
 
-                if (!isMember) {
+                if (!isParticipant) {
+
                     return;
+
                 }
 
-                const newMessage = await ChatMessage.create({
+                const savedMessage = await ChatMessage.create({
 
-                    groupId,
-                    sender: socket.user.id,
+                    sessionId,
+
+                    sender: socket.user._id,
+
                     message
 
                 });
 
                 const populatedMessage = await ChatMessage
-                    .findById(newMessage._id)
-                    .populate("sender", "name email");
 
-                io.to(groupId).emit("receiveMessage", populatedMessage);
+                    .findById(savedMessage._id)
 
-            } catch (error) {
+                    .populate(
 
-                console.error(error.message);
+                        "sender",
+
+                        "name email"
+
+                    );
+
+                io.to(sessionId).emit(
+
+                    "receiveMessage",
+
+                    populatedMessage
+
+                );
+
+            }
+
+            catch (error) {
+
+                console.error(error);
 
             }
 
         });
 
+        /*
+        ===========================================
+        SAIR DA SESSÃO
+        ===========================================
+        */
+
+        socket.on("leaveSession", (sessionId) => {
+
+            socket.leave(sessionId);
+
+            console.log(
+
+                `📤 ${socket.user.name} saiu da sessão.`
+
+            );
+
+        });
+
+        /*
+        ====================================================
+        CHAT PRIVADO
+        ====================================================
+        */
+               socket.on("privateMessage", async (data) => {
+
+            try {
+
+                const {
+
+                    receiverId,
+                    message
+
+                } = data;
+
+                if (!receiverId || !message || message.trim() === "") {
+
+                    return;
+
+                }
+
+                const receiver = await User.findById(receiverId);
+
+                if (!receiver) {
+
+                    socket.emit(
+
+                        "errorMessage",
+
+                        "Utilizador não encontrado."
+
+                    );
+
+                    return;
+
+                }
+
+                const savedMessage = await PrivateMessage.create({
+
+                    sender: socket.user._id,
+
+                    receiver: receiverId,
+
+                    message
+
+                });
+
+                const populatedMessage = await PrivateMessage
+
+                    .findById(savedMessage._id)
+
+                    .populate("sender", "name email")
+
+                    .populate("receiver", "name email");
+
+                    const messageObject = populatedMessage.toObject();
+
+                    messageObject.id = messageObject._id;
+
+                    messageObject.sender.id = messageObject.sender._id;
+                    messageObject.receiver.id = messageObject.receiver._id;
+
+                /*
+                ==========================================
+                ENVIA PARA O DESTINATÁRIO
+                ==========================================
+                */
+
+                const receiverSocket = onlineUsers.get(receiverId);
+
+                if (receiverSocket) {
+
+                    io.to(receiverSocket.socketId).emit(
+
+                        "receivePrivateMessage",
+
+                        messageObject
+
+                    );
+
+                }
+
+                /*
+                ==========================================
+                ENVIA TAMBÉM PARA O REMETENTE
+                ==========================================
+                */
+
+                socket.emit(
+
+                    "receivePrivateMessage",
+
+                    populatedMessage
+
+                );
+
+            }
+
+            catch (error) {
+
+                console.error(error);
+
+            }
+
+        });
+
+        /*
+        ====================================================
+        DESLIGAR
+        ====================================================
+        */
+
         socket.on("disconnect", () => {
 
-            console.log(`❌ Cliente desligado: ${socket.id}`);
+            console.log(
+
+                `🔴 ${socket.user.name} desligou-se.`
+
+            );
+
+            onlineUsers.delete(socket.user._id);
+
+            io.emit(
+
+                "onlineUsers",
+
+                Array.from(onlineUsers.values())
+
+            );
 
         });
 

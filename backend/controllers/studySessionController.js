@@ -6,7 +6,15 @@ const createStudySession = async (req, res) => {
 
     try {
 
-        const { groupId, title, description, date, location, calendarLink } = req.body;
+        const {
+    groupId,
+    title,
+    description,
+    date,
+    location,
+    calendarLink,
+    maxParticipants
+} = req.body;
 
         const group = await StudyGroup.findById(groupId);
 
@@ -25,18 +33,20 @@ const createStudySession = async (req, res) => {
                 message: "Tem de pertencer ao grupo para criar sessões."
             });
         }
+            const session = await StudySession.create({
 
-        const session = await StudySession.create({
+                groupId,
+                title,
+                description,
+                date,
+                location,
+                calendarLink,
+                maxParticipants,
+                createdBy: req.user.id,
 
-            groupId,
-            title,
-            description,
-            date,
-            location,
-            calendarLink,
-            createdBy: req.user.id
+                participants: [req.user.id]
 
-        });
+            });
 
         res.status(201).json({
             message: "Sessão criada com sucesso.",
@@ -80,9 +90,9 @@ const getStudySessionsByGroup = async (req, res) => {
             groupId: req.params.groupId
         })
             .populate("createdBy", "name email")
+            .populate("participants", "name email")
             .sort({ date: 1 });
-
-        res.status(200).json(sessions);
+            res.status(200).json(sessions);
 
     } catch (error) {
 
@@ -177,9 +187,163 @@ const deleteStudySession = async (req, res) => {
 
 };
 
+// Entrar numa sessão
+const joinStudySession = async (req, res) => {
+
+    try {
+
+        const session = await StudySession.findById(req.params.id);
+
+        if (!session) {
+
+            return res.status(404).json({
+                message: "Sessão não encontrada."
+            });
+
+        }
+
+        // Já participa?
+        if (session.participants.some(
+            participant => participant.toString() === req.user.id
+        )) {
+
+            return res.status(400).json({
+                message: "Já participa nesta sessão."
+            });
+
+        }
+
+        // Sessão cheia?
+        if (session.participants.length >= session.maxParticipants) {
+
+            return res.status(400).json({
+                message: "A sessão está completa."
+            });
+
+        }
+
+        session.participants.push(req.user.id);
+
+        await session.save();
+
+        res.status(200).json({
+
+            message: "Entrou na sessão.",
+
+            session
+
+        });
+
+    } catch (error) {
+
+        res.status(500).json({
+
+            message: error.message
+
+        });
+
+    }
+
+};
+
+// Sair da sessão
+const leaveStudySession = async (req, res) => {
+
+    try {
+
+        const session = await StudySession.findById(req.params.id);
+
+        if (!session) {
+
+            return res.status(404).json({
+                message: "Sessão não encontrada."
+            });
+
+        }
+
+        // O criador não pode sair
+        if (session.createdBy.toString() === req.user.id) {
+
+            return res.status(400).json({
+                message: "O criador da sessão não pode sair."
+            });
+
+        }
+
+        const isParticipant = session.participants.some(
+            participant => participant.toString() === req.user.id
+        );
+
+        if (!isParticipant) {
+
+            return res.status(400).json({
+                message: "Não participa nesta sessão."
+            });
+
+        }
+
+        session.participants = session.participants.filter(
+            participant => participant.toString() !== req.user.id
+        );
+
+        await session.save();
+
+        res.status(200).json({
+
+            message: "Saiu da sessão.",
+
+            session
+
+        });
+
+    } catch (error) {
+
+        res.status(500).json({
+
+            message: error.message
+
+        });
+
+    }
+
+};
+
+// Obter uma sessão pelo ID
+const getStudySessionById = async (req, res) => {
+
+    try {
+
+        const session = await StudySession.findById(req.params.id)
+            .populate("createdBy", "name email")
+            .populate("participants", "name email");
+
+        if (!session) {
+
+            return res.status(404).json({
+                message: "Sessão não encontrada."
+            });
+
+        }
+
+        res.status(200).json(session);
+
+    } catch (error) {
+
+        res.status(500).json({
+            message: error.message
+        });
+
+    }
+
+};
+
+
 module.exports = {
     createStudySession,
     getStudySessionsByGroup,
     updateStudySession,
-    deleteStudySession
+    deleteStudySession,
+    joinStudySession,
+    leaveStudySession,
+    getStudySessionById
 };

@@ -58,6 +58,13 @@ app.use("/api/resources", resourceRoutes);
 
 app.use("/uploads", express.static("uploads"));
 
+const chatRoutes = require("./routes/chatRoutes");
+
+app.use("/api/chat", chatRoutes);
+
+const privateMessageRoutes = require("./routes/privateMessageRoutes");
+app.use( "/api/privateMessages", privateMessageRoutes );
+
 
 server.listen(PORT, () => {
     console.log(`🚀 Servidor iniciado na porta ${PORT}`);
