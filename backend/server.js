@@ -65,6 +65,10 @@ app.use("/api/chat", chatRoutes);
 const privateMessageRoutes = require("./routes/privateMessageRoutes");
 app.use( "/api/privateMessages", privateMessageRoutes );
 
+const profileRoutes = require("./routes/profileRoutes");
+
+app.use("/api/profile", profileRoutes);
+
 
 server.listen(PORT, () => {
     console.log(`🚀 Servidor iniciado na porta ${PORT}`);

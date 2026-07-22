@@ -11,24 +11,8 @@ const {
 
 } = require("../controllers/privateMessageController");
 
-router.get(
+router.get( "/:userId", authMiddleware, getConversation );
 
-    "/:userId",
-
-    authMiddleware,
-
-    getConversation
-
-);
-
-router.post(
-
-    "/",
-
-    authMiddleware,
-
-    sendPrivateMessage
-
-);
+router.post( "/", authMiddleware, sendPrivateMessage );
 
 module.exports = router;
