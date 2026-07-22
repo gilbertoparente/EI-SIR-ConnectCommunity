@@ -68,29 +68,43 @@ const uploadResource = async (req, res) => {
 };
 
 // Listar recursos
+// Listar recursos
 const getResourcesByGroup = async (req, res) => {
 
     try {
 
-        const resources = await Resource.find({
+        const resources = await Resource
+            .find({
+                groupId: req.params.groupId
+            })
+            .populate("uploadedBy", "name email")
+            .sort({
+                createdAt: -1
+            });
 
-            groupId: req.params.groupId
+        const resourcesWithUrl = resources.map(resource => ({
 
-        })
+            _id: resource._id,
 
-        .populate("uploadedBy", "name email")
+            title: resource.title,
 
-        .sort({
+            type: resource.type,
 
-            createdAt: -1
+            fileName: resource.fileName,
 
-        });
+            filePath: resource.filePath,
 
-        res.status(200).json(resources);
+            uploadedBy: resource.uploadedBy,
 
-    }
+            createdAt: resource.createdAt,
 
-    catch (error) {
+            downloadUrl: `/uploads/${resource.fileName}`
+
+        }));
+
+        res.status(200).json(resourcesWithUrl);
+
+    } catch (error) {
 
         res.status(500).json({
             message: error.message

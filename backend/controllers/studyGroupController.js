@@ -157,9 +157,81 @@ const leaveStudyGroup = async (req, res) => {
 
 };
 
+// Obter um grupo pelo ID
+const getStudyGroupById = async (req, res) => {
+
+    try {
+
+        const group = await StudyGroup
+            .findById(req.params.id)
+            .populate("owner", "name email")
+            .populate("members", "name email");
+
+        if (!group) {
+
+            return res.status(404).json({
+                message: "Grupo não encontrado."
+            });
+
+        }
+
+        res.status(200).json(group);
+
+    } catch (error) {
+
+        res.status(500).json({
+            message: error.message
+        });
+
+    }
+
+};
+
+// Eliminar grupo
+const deleteStudyGroup = async (req, res) => {
+
+    try {
+
+        const group = await StudyGroup.findById(req.params.id);
+
+        if (!group) {
+
+            return res.status(404).json({
+                message: "Grupo não encontrado."
+            });
+
+        }
+
+        // Apenas o proprietário pode eliminar
+        if (group.owner.toString() !== req.user.id) {
+
+            return res.status(403).json({
+                message: "Não tem permissão para eliminar este grupo."
+            });
+
+        }
+
+        await group.deleteOne();
+
+        res.status(200).json({
+            message: "Grupo eliminado com sucesso."
+        });
+
+    } catch (error) {
+
+        res.status(500).json({
+            message: error.message
+        });
+
+    }
+
+};
+
 module.exports = {
     createStudyGroup,
     getStudyGroups,
     joinStudyGroup,
-    leaveStudyGroup
+    leaveStudyGroup,
+    getStudyGroupById,
+    deleteStudyGroup
 };
