@@ -10,14 +10,6 @@ const {
 
 } = require("../controllers/chatController");
 
-router.get(
-
-    "/session/:sessionId",
-
-    authMiddleware,
-
-    getMessagesBySession
-
-);
+router.get( "/session/:sessionId", authMiddleware, getMessagesBySession );
 
 module.exports = router;

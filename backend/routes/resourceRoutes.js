@@ -15,25 +15,12 @@ const {
 } = require("../controllers/resourceController");
 
 // Upload
-router.post(
-    "/upload",
-    authMiddleware,
-    upload.single("file"),
-    uploadResource
-);
+router.post( "/upload", authMiddleware, upload.single("file"), uploadResource );
 
 // Listar recursos
-router.get(
-    "/group/:groupId",
-    authMiddleware,
-    getResourcesByGroup
-);
+router.get( "/group/:groupId", authMiddleware, getResourcesByGroup );
 
 // Eliminar
-router.delete(
-    "/:id",
-    authMiddleware,
-    deleteResource
-);
+router.delete( "/:id",authMiddleware, deleteResource );
 
 module.exports = router;
