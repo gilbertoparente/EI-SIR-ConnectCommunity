@@ -15,7 +15,7 @@ function AuthLayout() {
             {/* Navbar com a cor exata do fundo do logótipo */}
             <nav 
                 className="navbar navbar-expand-lg navbar-dark shadow-sm"
-                style={{ backgroundColor: "#1b2432" }}
+                style={{ backgroundColor: "#18273E" }}
             >
                 <div className="container-fluid px-4">
                     
